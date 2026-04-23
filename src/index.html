@@ -2,11 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0f0f0f" id="meta-theme-color">
 <title>OmniChat</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -331,7 +331,7 @@ body.light .bot-content tr:nth-child(even) td { background:rgba(0,0,0,.03); }
 
 /* SCROLL DOWN */
 #scroll-down {
-  position:absolute; bottom:calc(var(--input-zone-h, 88px) + 10px); right:1.2rem;
+  position:absolute; bottom:calc(var(--input-zone-h, 72px) + 6px); right:1.2rem;
   width:30px; height:30px; border-radius:50%;
   background:var(--bg3); border:1px solid var(--border2); color:var(--text-dim);
   cursor:pointer; display:none; align-items:center; justify-content:center;
@@ -341,9 +341,9 @@ body.light .bot-content tr:nth-child(even) td { background:rgba(0,0,0,.03); }
 #scroll-down:hover { border-color:var(--accent); color:var(--accent); }
 
 /* MODAL BASE */
-.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500; align-items:center; justify-content:center; padding:1rem; }
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500; align-items:flex-end; justify-content:center; padding:1rem; padding-bottom:max(1rem, env(safe-area-inset-bottom)); }
 .modal-bg.open { display:flex; }
-.modal-box { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:1.4rem; width:100%; max-width:420px; display:flex; flex-direction:column; gap:.9rem; max-height:90vh; overflow-y:auto; }
+.modal-box { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:1.4rem; width:100%; max-width:420px; display:flex; flex-direction:column; gap:.9rem; max-height:85vh; overflow-y:auto; }
 .modal-title { font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text); display:flex; align-items:center; gap:.5rem; }
 .modal-label { font-size:.72rem; font-weight:500; color:var(--text-mid); text-transform:uppercase; letter-spacing:.1em; display:flex; align-items:center; gap:.4rem; }
 .modal-sub { font-size:.78rem; color:var(--text-dim); line-height:1.6; }
@@ -589,7 +589,7 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
           </button>
         </div>
       </div>
-      <textarea id="msg-input" placeholder="Message… (Shift+Entrée pour envoyer)" rows="1" onkeydown="onKey(event)" oninput="autoResize(this);saveDraft()"></textarea>
+      <textarea id="msg-input" placeholder="Message… (Shift+Entrée pour envoyer)" rows="1" onkeydown="onKey(event)" oninput="autoResize(this);saveDraft()" autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
       <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Parler">
         <span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
       </button>
@@ -2117,4 +2117,3 @@ if(!groqKey||groqKey.length<8)setTimeout(()=>showToast("Entre ta clé Groq pour 
 </script>
 </body>
 </html>
-
