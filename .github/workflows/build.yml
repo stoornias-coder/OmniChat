@@ -1,0 +1,77 @@
+name: Build OmniChat APK
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: Prepare www folder
+        run: |
+          mkdir -p www
+          cp src/index.html www/index.html
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Copy app icons
+        run: |
+          for d in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p android/app/src/main/res/mipmap-${d}
+            cp assets/icons/mipmap-${d}.png \
+               android/app/src/main/res/mipmap-${d}/ic_launcher.png
+            cp assets/icons/mipmap-${d}.png \
+               android/app/src/main/res/mipmap-${d}/ic_launcher_round.png
+          done
+          find android/app/src/main/res -name "ic_launcher.xml" -delete
+          find android/app/src/main/res -name "ic_launcher_round.xml" -delete
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniChat-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
