@@ -49,30 +49,71 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      # ✅ FIX 1 : Icônes launcher + round + foreground (adaptative)
       - name: Copy app icons
         run: |
           for d in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p android/app/src/main/res/mipmap-${d}
-            cp assets/icons/mipmap-${d}.png \
-               android/app/src/main/res/mipmap-${d}/ic_launcher.png
-            cp assets/icons/mipmap-${d}.png \
-               android/app/src/main/res/mipmap-${d}/ic_launcher_round.png
+            if [ -f "assets/icons/mipmap-${d}.png" ]; then
+              cp assets/icons/mipmap-${d}.png \
+                 android/app/src/main/res/mipmap-${d}/ic_launcher.png
+              cp assets/icons/mipmap-${d}.png \
+                 android/app/src/main/res/mipmap-${d}/ic_launcher_round.png
+              # icône foreground pour les launchers adaptatifs (Android 8+)
+              cp assets/icons/mipmap-${d}.png \
+                 android/app/src/main/res/mipmap-${d}/ic_launcher_foreground.png
+            else
+              echo "⚠️  assets/icons/mipmap-${d}.png introuvable — icône ignorée"
+            fi
           done
 
-      - name: Patch AndroidManifest — presse-papier
+      # ✅ FIX 2 : Splashscreen — copier l'image dans drawable
+      - name: Copy splashscreen
         run: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          if ! grep -q "READ_CLIPBOARD" "$MANIFEST"; then
-            sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_CLIPBOARD"/>|' "$MANIFEST"
+          mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/drawable-land
+          mkdir -p android/app/src/main/res/drawable-port
+          # Cherche splash.png ou splashscreen.png dans assets/
+          SPLASH=""
+          for f in assets/splash.png assets/splashscreen.png assets/icons/splash.png; do
+            if [ -f "$f" ]; then SPLASH="$f"; break; fi
+          done
+          if [ -n "$SPLASH" ]; then
+            cp "$SPLASH" android/app/src/main/res/drawable/splash.png
+            cp "$SPLASH" android/app/src/main/res/drawable-land/splash.png
+            cp "$SPLASH" android/app/src/main/res/drawable-port/splash.png
+            echo "✅ Splash copié depuis $SPLASH"
+          else
+            echo "⚠️  Aucun fichier splash trouvé — splashscreen ignoré"
           fi
 
-      - name: Patch MainActivity — WebView keyboard suggestions
+      # ✅ FIX 3 : Permissions presse-papier + PROCESS_TEXT
+      - name: Patch AndroidManifest — presse-papier & clavier
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+
+          # Permissions clipboard
+          if ! grep -q "READ_CLIPBOARD" "$MANIFEST"; then
+            sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_CLIPBOARD"/>\n    <uses-permission android:name="android.permission.WRITE_CLIPBOARD"/>|' "$MANIFEST"
+          fi
+
+          # windowSoftInputMode pour que le clavier ne cache pas l'input + suggestions actives
+          if ! grep -q "windowSoftInputMode" "$MANIFEST"; then
+            sed -i 's|android:name=".MainActivity"|android:name=".MainActivity"\n            android:windowSoftInputMode="adjustResize"|' "$MANIFEST"
+          fi
+
+      # ✅ FIX 4 : MainActivity — WebView config complète (suggestions + copier-coller)
+      - name: Patch MainActivity — WebView keyboard + clipboard
         run: |
           MAIN=android/app/src/main/java/com/omnichat/app/MainActivity.java
           cat > "$MAIN" << 'EOF'
           package com.omnichat.app;
+
           import android.os.Bundle;
+          import android.view.View;
+          import android.view.inputmethod.EditorInfo;
           import android.webkit.WebSettings;
+          import android.webkit.WebView;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
@@ -80,11 +121,22 @@ jobs:
             public void onCreate(Bundle savedInstanceState) {
               super.onCreate(savedInstanceState);
               if (this.bridge != null && this.bridge.getWebView() != null) {
-                WebSettings s = this.bridge.getWebView().getSettings();
+                WebView wv = this.bridge.getWebView();
+                WebSettings s = wv.getSettings();
+
+                // Suggestions clavier + copier-coller
                 s.setAllowContentAccess(true);
                 s.setAllowFileAccess(true);
                 s.setDomStorageEnabled(true);
                 s.setJavaScriptEnabled(true);
+
+                // Active les suggestions de mots (IME)
+                wv.setFocusable(true);
+                wv.setFocusableInTouchMode(true);
+
+                // Permet la sélection de texte et le menu copier-coller natif
+                wv.setLongClickable(true);
+                wv.setHapticFeedbackEnabled(true);
               }
             }
           }
