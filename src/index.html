@@ -936,29 +936,33 @@ document.addEventListener('paste', async (e) => {
   const isTextInput = active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT');
   if (!isTextInput) return;
 
-  // Essai 1 : clipboard natif de l'event (fonctionne sur desktop/Safari)
+  e.preventDefault();
+
+  let text = '';
+
+  // Essai 1 : clipboard natif de l'event
   if (e.clipboardData && e.clipboardData.getData) {
-    const text = e.clipboardData.getData('text/plain');
-    if (text) return; // OK natif, on laisse faire
+    text = e.clipboardData.getData('text/plain') || e.clipboardData.getData('text') || '';
   }
 
-  // Essai 2 : Clipboard API (Android WebView Capacitor)
-  e.preventDefault();
-  try {
-    const text = await navigator.clipboard.readText();
-    if (!text) return;
-    const start = active.selectionStart ?? active.value.length;
-    const end = active.selectionEnd ?? active.value.length;
-    const before = active.value.substring(0, start);
-    const after = active.value.substring(end);
-    active.value = before + text + after;
-    const newPos = start + text.length;
-    active.setSelectionRange(newPos, newPos);
-    active.dispatchEvent(new Event('input', { bubbles: true }));
-  } catch (err) {
-    // Dernier recours : execCommand (ancien Android)
-    try { document.execCommand('paste'); } catch(_) {}
+  // Essai 2 : Clipboard API (Android WebView — plus fiable pour sauts de ligne)
+  if (!text) {
+    try { text = await navigator.clipboard.readText(); } catch(_) {}
   }
+
+  // Essai 3 : window.clipboardData (vieux Android)
+  if (!text && window.clipboardData) {
+    text = window.clipboardData.getData('Text') || '';
+  }
+
+  if (!text) return;
+
+  const start = active.selectionStart ?? active.value.length;
+  const end = active.selectionEnd ?? active.value.length;
+  active.value = active.value.substring(0, start) + text + active.value.substring(end);
+  const newPos = start + text.length;
+  active.setSelectionRange(newPos, newPos);
+  active.dispatchEvent(new Event('input', { bubbles: true }));
 });
 document.getElementById("sidebar").classList.add(window.innerWidth<=640?"hidden":"");
 
@@ -2275,4 +2279,3 @@ if(!groqKey||groqKey.length<8)setTimeout(()=>showToast("Entre ta clé Groq pour 
 </script>
 </body>
 </html>
-
