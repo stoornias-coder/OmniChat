@@ -15,6 +15,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -22,7 +23,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -34,42 +34,41 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm ci # "npm ci" est plus propre et rapide en CI que "npm install"
+        run: npm install
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
 
       - name: Prepare www folder
         run: |
           mkdir -p www
-          # Assure-toi que ce fichier existe ou que ton build web est lancé ici
-          cp src/index.html www/index.html 
+          cp src/index.html www/index.html
 
-      - name: Capacitor Sync
+      - name: Add Android platform
         run: |
+          npx cap add android
           npx cap sync android
 
       - name: Copy app icons
         run: |
-          # Création des dossiers et copie des icônes
           for d in ldpi mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p android/app/src/main/res/mipmap-${d}
-            if [ -f "assets/icons/mipmap-${d}.png" ]; then
-              cp assets/icons/mipmap-${d}.png android/app/src/main/res/mipmap-${d}/ic_launcher.png
-              cp assets/icons/mipmap-${d}.png android/app/src/main/res/mipmap-${d}/ic_launcher_round.png
-            fi
+            cp assets/icons/mipmap-${d}.png \
+               android/app/src/main/res/mipmap-${d}/ic_launcher.png
+            cp assets/icons/mipmap-${d}.png \
+               android/app/src/main/res/mipmap-${d}/ic_launcher_round.png
           done
 
-      - name: Patch AndroidManifest
+      - name: Patch AndroidManifest — presse-papier
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          # Vérifie bien le nom de la permission (ex: android.permission.READ_EXTERNAL_STORAGE)
           if ! grep -q "READ_CLIPBOARD" "$MANIFEST"; then
             sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.READ_CLIPBOARD"/>|' "$MANIFEST"
           fi
 
-      - name: Patch MainActivity
+      - name: Patch MainActivity — WebView keyboard suggestions
         run: |
-          # Correction de l'indentation ici
           MAIN=android/app/src/main/java/com/omnichat/app/MainActivity.java
-          mkdir -p android/app/src/main/java/com/omnichat/app/
           cat > "$MAIN" << 'EOF'
           package com.omnichat.app;
           import android.os.Bundle;
@@ -80,23 +79,35 @@ jobs:
             @Override
             public void onCreate(Bundle savedInstanceState) {
               super.onCreate(savedInstanceState);
+              if (this.bridge != null && this.bridge.getWebView() != null) {
+                WebSettings s = this.bridge.getWebView().getSettings();
+                s.setAllowContentAccess(true);
+                s.setAllowFileAccess(true);
+                s.setDomStorageEnabled(true);
+                s.setJavaScriptEnabled(true);
+              }
             }
           }
           EOF
 
-      - name: Patch styles.xml
+      - name: Patch styles.xml — StatusBar icônes visibles
         run: |
           STYLES=android/app/src/main/res/values/styles.xml
           if [ -f "$STYLES" ]; then
-            # Utilisation de sed pour insérer avant la fermeture de la balise style
-            sed -i '/<\/style>/i \    <item name="android:statusBarColor">@android:color/transparent</item>' "$STYLES"
-            sed -i '/<\/style>/i \    <item name="android:windowLightStatusBar">true</item>' "$STYLES"
+            if ! grep -q "android:statusBarColor" "$STYLES"; then
+              sed -i 's|</style>|    <item name="android:statusBarColor">@android:color/transparent</item>\n    </style>|' "$STYLES"
+            fi
+            if ! grep -q "android:windowLightStatusBar" "$STYLES"; then
+              sed -i 's|</style>|    <item name="android:windowLightStatusBar">true</item>\n    </style>|' "$STYLES"
+            fi
           fi
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
 
       - name: Build debug APK
         run: |
           cd android
-          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK
