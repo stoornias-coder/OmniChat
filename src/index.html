@@ -19,6 +19,11 @@
   --user-bg: #2a2a2a; --red: #e53935; --radius: 12px; --sb: 260px;
   --rp: #e8a020; --rp2: #c98a18; --rp-glow: rgba(232,160,32,0.12);
 }
+html.light-init {
+  --bg:#ffffff; --bg2:#f7f7f7; --bg3:#eeeeee; --bg4:#e3e3e3;
+  --border:#e5e5e5; --border2:#d4d4d4;
+  --text:#111111; --text-dim:#aaa; --text-mid:#666; --user-bg:#f0f0f0;
+}
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html, body { height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; overflow:hidden; }
 
@@ -802,6 +807,8 @@ if(webMode==="off" && _oldModes.web) webMode="web";
 if(webMode==="off" && _oldModes.auto) webMode="auto";
 
 let isDark=(localStorage.getItem(THEME_KEY)||"dark")==="dark";
+// Appliquer le thème immédiatement pour éviter le flash au démarrage
+if(!isDark)document.documentElement.classList.add('light-init');
 let attachedFile=null,mediaRecorder=null,audioChunks=[],isRecording=false;
 
 let rpChars=JSON.parse(localStorage.getItem(RP_CHARS_KEY)||"[]");
@@ -1255,9 +1262,9 @@ async function fetchELAudio(text,key,voiceId){
 function toggleTTS(){
   if(!ttsEnabled){
     if(ttsProvider==="browser"){
-      if(!('speechSynthesis' in window)){showToast("Voix navigateur non supportée sur cet appareil.");return;}
+      if(!('speechSynthesis' in window)||window.Capacitor){showToast("Voix navigateur non dispo sur Android — utilise ElevenLabs dans Paramètres.");return;}
       const voices=window.speechSynthesis.getVoices();
-      if(!voices.length){showToast("Aucune voix disponible — va dans Paramètres > Voix TTS pour configurer.");return;}
+      if(!voices.length){showToast("Aucune voix disponible — configure ElevenLabs dans Paramètres.");return;}
     }
     if(ttsProvider==="elevenlabs"&&(!elKey||!elVoiceId)){showToast("Configure ElevenLabs dans Paramètres avant d'activer la voix.");return;}
   }
@@ -2257,7 +2264,7 @@ function autoResize(el){
 function onKey(e){if(e.key==="Enter"&&e.shiftKey){e.preventDefault();sendMessage();}}
 
 function scrollBottom(){const cw=document.getElementById("chat-wrap");cw.scrollTo({top:cw.scrollHeight,behavior:"smooth"});}
-function scrollBottomKeepFocus(e){if(e){e.preventDefault();e.stopPropagation();}const cw=document.getElementById("chat-wrap");cw.scrollTo({top:cw.scrollHeight,behavior:"smooth"});}
+function scrollBottomKeepFocus(e){if(e){e.preventDefault();e.stopPropagation();}const cw=document.getElementById("chat-wrap");const inp=document.getElementById("msg-input");const hadFocus=document.activeElement===inp;cw.scrollTo({top:cw.scrollHeight,behavior:"smooth"});if(hadFocus)setTimeout(()=>inp.focus({preventScroll:true}),50);}
 function isUserNearBottom(){const cw=document.getElementById("chat-wrap");return cw.scrollHeight-cw.scrollTop-cw.clientHeight<80;}
 function fillMsg(text){const input=document.getElementById("msg-input");input.value=text;autoResize(input);input.focus();}
 function startRP(){if(!modes.rp)toggleMode('rp');fillMsg("Lance un scénario de roleplay. Tu choisis le genre et le contexte.");}
@@ -2275,7 +2282,22 @@ document.getElementById("chat-wrap").addEventListener("scroll",()=>{
   document.getElementById("scroll-down").classList.toggle("show",cw.scrollHeight-cw.scrollTop-cw.clientHeight>=100&&cw.scrollHeight>cw.clientHeight+200);
 });
 
+// FIX espace clavier : recalculer la hauteur quand le clavier Android s'ouvre/ferme
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>{
+    const main=document.getElementById('main');
+    if(main){
+      const vh=window.visualViewport.height;
+      main.style.height=vh+'px';
+    }
+    updateScrollDownPosition();
+    const cw=document.getElementById('chat-wrap');
+    if(cw&&isUserNearBottom())cw.scrollTo({top:cw.scrollHeight,behavior:'smooth'});
+  });
+}
+
 if(!groqKey||groqKey.length<8)setTimeout(()=>showToast("Entre ta clé Groq pour commencer — bouton Clé API en haut",5000),2200);
 </script>
 </body>
 </html>
+
