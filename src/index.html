@@ -181,7 +181,7 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
 #chat-wrap::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
 
 /* WELCOME */
-#welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:1.5rem; padding-bottom:calc(1.5rem + var(--input-zone-h, 72px)); text-align:center; }
+#welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; padding:1.5rem; padding-bottom:calc(1.5rem + var(--input-zone-h, 72px)); text-align:center; }
 .welcome-title { font-family:'DM Serif Display',serif; font-size:1.8rem; color:var(--text); margin-bottom:.5rem; }
 .welcome-sub { font-size:.82rem; color:var(--text-dim); max-width:320px; line-height:1.6; margin-bottom:1.8rem; }
 .suggestions { display:grid; grid-template-columns:1fr; gap:.5rem; max-width:480px; width:100%; }
@@ -2285,15 +2285,16 @@ document.getElementById("chat-wrap").addEventListener("scroll",()=>{
 // FIX espace clavier : recalculer la hauteur quand le clavier Android s'ouvre/ferme
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize',()=>{
+    const welcome=document.getElementById('welcome');
+    const welcomeVisible=!welcome||welcome.style.display===''||welcome.style.display==='flex';
     const main=document.getElementById('main');
-    if(main){
+    if(main&&!welcomeVisible){
       const vh=window.visualViewport.height;
       main.style.height=vh+'px';
+    } else if(main&&welcomeVisible){
+      main.style.height='';
     }
     updateScrollDownPosition();
-    // Scroller uniquement si on est dans la vue messages (pas welcome) et déjà en bas
-    const welcome=document.getElementById('welcome');
-    const welcomeVisible=welcome&&welcome.style.display!=='none';
     if(!welcomeVisible){
       const cw=document.getElementById('chat-wrap');
       if(cw&&isUserNearBottom())cw.scrollTo({top:cw.scrollHeight,behavior:'smooth'});
@@ -2305,4 +2306,3 @@ if(!groqKey||groqKey.length<8)setTimeout(()=>showToast("Entre ta clé Groq pour 
 </script>
 </body>
 </html>
-
