@@ -313,7 +313,67 @@ body.light .bot-content tr:nth-child(even) td { background:rgba(0,0,0,.03); }
 #send-btn:disabled { background:var(--bg4); cursor:default; opacity:.5; }
 .input-hint { text-align:center; font-size:.62rem; color:var(--text-dim); margin-top:.4rem; }
 
-/* ATTACH MENU */
+/* CALL MODE */
+#call-btn.active { color:var(--accent); }
+#call-btn.active svg line { animation:waveBar 1s ease-in-out infinite; }
+#call-btn.active svg line:nth-child(1) { animation-delay:.0s; }
+#call-btn.active svg line:nth-child(2) { animation-delay:.1s; }
+#call-btn.active svg line:nth-child(3) { animation-delay:.2s; }
+#call-btn.active svg line:nth-child(4) { animation-delay:.3s; }
+#call-btn.active svg line:nth-child(5) { animation-delay:.4s; }
+#call-btn.active svg line:nth-child(6) { animation-delay:.5s; }
+@keyframes waveBar { 0%,100%{stroke-width:1.75;opacity:.5} 50%{stroke-width:2.5;opacity:1} }
+#call-overlay {
+  display:none; position:fixed; inset:0; z-index:5000;
+  background:rgba(10,10,10,.96);
+  flex-direction:column; align-items:center; justify-content:center; gap:1.6rem;
+  backdrop-filter:blur(12px);
+}
+#call-overlay.show { display:flex; }
+#call-close-btn {
+  position:absolute; top:calc(1.2rem + env(safe-area-inset-top)); right:1.2rem;
+  background:var(--bg3); border:1px solid var(--border2); border-radius:50%;
+  width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  color:var(--text-dim); transition:all .2s;
+}
+#call-close-btn:hover { background:var(--bg4); color:var(--text); }
+.call-orb {
+  width:110px; height:110px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #1a1a2e, #0f0f0f);
+  border:1.5px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  position:relative; transition:all .4s ease;
+}
+.call-orb::before {
+  content:''; position:absolute; inset:-6px; border-radius:50%;
+  border:2px solid transparent; transition:all .4s ease;
+}
+.call-orb.listening::before { border-color:var(--accent); opacity:.6; animation:orbPulse 2s infinite; }
+.call-orb.speaking::before { border-color:var(--rp); opacity:.8; animation:orbPulse .8s infinite; }
+.call-orb.thinking::before { border-color:#7c6fcd; opacity:.5; animation:orbSpin 1.5s linear infinite; }
+@keyframes orbPulse { 0%,100%{transform:scale(1);opacity:.5} 50%{transform:scale(1.08);opacity:.9} }
+@keyframes orbSpin { to{transform:rotate(360deg)} }
+.call-orb-icon { color:var(--text-dim); opacity:.7; transition:all .3s; }
+.call-orb.listening .call-orb-icon { color:var(--accent); opacity:1; }
+.call-orb.speaking .call-orb-icon { color:var(--rp); opacity:1; }
+.call-status { font-size:.78rem; color:var(--text-dim); letter-spacing:.08em; text-transform:uppercase; min-height:1.2em; }
+.call-transcript {
+  max-width:300px; text-align:center; font-size:.88rem; color:var(--text);
+  line-height:1.7; min-height:2.5em; font-style:italic; opacity:.75;
+  transition:opacity .3s;
+}
+.call-mute-row { display:flex; justify-content:center; margin-top:.4rem; }
+.call-mute-pill {
+  display:flex; align-items:center; gap:.5rem;
+  background:var(--bg3); border:1px solid var(--border2);
+  border-radius:30px; padding:.45rem 1rem; cursor:pointer;
+  font-size:.75rem; color:var(--text-mid); font-family:'DM Sans',sans-serif;
+  transition:all .2s;
+}
+.call-mute-pill:hover { background:var(--bg4); color:var(--text); }
+.call-mute-pill.muted { border-color:#e53935; color:#e53935; background:rgba(229,57,53,.08); }
+
+
 .attach-wrap { position:relative; flex-shrink:0; }
 .attach-menu { display:none; position:absolute; bottom:calc(100% + 8px); left:0; background:var(--bg2); border:1px solid var(--border2); border-radius:12px; padding:.4rem; min-width:180px; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.4); flex-direction:column; gap:.1rem; }
 .attach-menu.open { display:flex; }
@@ -556,23 +616,8 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
     <div id="welcome">
       <div class="welcome-title">Comment puis-je t'aider ?</div>
       <div class="welcome-sub">Pose une question, lance une recherche web, ou commence un roleplay.</div>
-      <div class="suggestions">
-        <div class="sug-card" onclick="fillMsg('Quelles sont les dernières actualités aujourd\'hui ?')">
-          <div class="sug-icon"><span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span></div>
-          <div class="sug-text">Dernières actualités du jour</div>
-        </div>
-        <div class="sug-card" onclick="fillMsg('Explique-moi comment fonctionne l\'IA en termes simples.')">
-          <div class="sug-icon"><span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span></div>
-          <div class="sug-text">Explique-moi l'IA simplement</div>
-        </div>
-        <div class="sug-card" onclick="startRP()">
-          <div class="sug-icon"><span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span></div>
-          <div class="sug-text">Lancer un roleplay</div>
-        </div>
-        <div class="sug-card" onclick="fillMsg('Écris-moi un email professionnel pour demander une réunion.')">
-          <div class="sug-icon"><span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span></div>
-          <div class="sug-text">Aide à la rédaction</div>
-        </div>
+      <div class="suggestions" id="suggestions-grid">
+        <!-- Populated dynamically -->
       </div>
     </div>
     <div id="messages" style="display:none;"></div>
@@ -616,6 +661,9 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
       <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Parler">
         <span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
       </button>
+      <button class="icon-btn" id="call-btn" onclick="toggleCallMode()" title="Conversation vocale">
+        <span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="3" y1="12" x2="3" y2="12"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="11" y1="5" x2="11" y2="19"/><line x1="15" y1="8" x2="15" y2="16"/><line x1="19" y1="10" x2="19" y2="14"/><line x1="23" y1="12" x2="23" y2="12"/></svg></span>
+      </button>
       <button id="send-btn" onclick="sendMessage()" disabled>
         <span class="ic s18"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span>
       </button>
@@ -627,6 +675,26 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
   <input type="file" id="file-camera" accept="image/*" capture="environment" style="display:none" onchange="handleFileSelect(event,'image')">
   <input type="file" id="file-doc" accept=".txt,.md,.csv,.json,.js,.py,.html,.css,.pdf" style="display:none" onchange="handleFileSelect(event,'doc')">
 </div>
+</div>
+
+<!-- CALL OVERLAY -->
+<div id="call-overlay">
+  <button id="call-close-btn" onclick="endCallMode()" title="Terminer">
+    <span class="ic s16"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+  </button>
+  <div class="call-orb" id="call-avatar">
+    <span class="call-orb-icon ic" style="width:44px;height:44px;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" width="44" height="44"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </span>
+  </div>
+  <div class="call-status" id="call-status">Initialisation…</div>
+  <div class="call-transcript" id="call-transcript"></div>
+  <div class="call-mute-row">
+    <button class="call-mute-pill" id="call-mute-btn" onclick="toggleCallMute()">
+      <span class="ic s14"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
+      <span id="call-mute-label">Couper micro</span>
+    </button>
+  </div>
 </div>
 
 <!-- KEY MODAL -->
@@ -658,6 +726,7 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
       <div class="tts-provider-tabs">
         <button class="tts-provider-tab active" id="tab-browser" onclick="switchTTSProvider('browser')">Navigateur</button>
         <button class="tts-provider-tab" id="tab-elevenlabs" onclick="switchTTSProvider('elevenlabs')">ElevenLabs</button>
+        <button class="tts-provider-tab" id="tab-unrealspeech" onclick="switchTTSProvider('unrealspeech')">Unreal Speech</button>
       </div>
       <div class="tts-panel active" id="tts-panel-browser">
         <div class="modal-sub">Voix intégrées au navigateur. Qualité variable selon ton système.</div>
@@ -691,6 +760,26 @@ body.rp-mode #send-btn:hover { background:var(--rp2); }
             Tester ElevenLabs
           </button>
           <div id="el-status" class="api-status"></div>
+        </div>
+      </div>
+      <div class="tts-panel" id="tts-panel-unrealspeech">
+        <div class="modal-sub">Voix naturelles haute qualité. Clé gratuite sur <a href="https://unrealspeech.com" target="_blank" style="color:#7c6fcd">unrealspeech.com</a>. Jusqu'à 250 000 caractères/mois gratuits.</div>
+        <input class="modal-input" type="password" id="unreal-key-input" placeholder="Clé Unreal Speech..." autocomplete="off" spellcheck="false">
+        <div class="modal-label" style="margin-top:.2rem;">Voix</div>
+        <select class="modal-input" id="unreal-voice-select" style="appearance:none;cursor:pointer;">
+          <option value="Scarlett">Scarlett (féminin, naturel)</option>
+          <option value="Liv">Liv (féminin, doux)</option>
+          <option value="Dan">Dan (masculin, clair)</option>
+          <option value="Will">Will (masculin, profond)</option>
+          <option value="Amy">Amy (féminin, expressif)</option>
+          <option value="Aria">Aria (féminin, intense)</option>
+        </select>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.3rem;">
+          <button class="tts-preview-btn" id="unreal-test-btn" onclick="previewUnrealVoice(this)">
+            <span class="ic s12"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+            Tester Unreal Speech
+          </button>
+          <div id="unreal-status" class="api-status"></div>
         </div>
       </div>
     </div>
@@ -798,6 +887,7 @@ const RP_UNIVERSES_KEY="omnichat_rp_universes_v2", RP_ACTIVE_UNI_KEY="omnichat_r
 const TTS_VOICE_KEY="omnichat_tts_voice";
 const TTS_PROVIDER_KEY="omnichat_tts_provider";
 const EL_KEY_STORE="omnichat_el_key", EL_VOICE_ID_STORE="omnichat_el_voice_id";
+const UNREAL_KEY_STORE="omnichat_unreal_key", UNREAL_VOICE_STORE="omnichat_unreal_voice";
 const DRAFT_KEY="omnichat_draft";
 const WEB_MODE_KEY="omnichat_web_mode";
 
@@ -805,6 +895,8 @@ let groqKey=localStorage.getItem(GROQ_KEY_STORE)||"";
 let tavilyKey=localStorage.getItem(TAVILY_KEY_STORE)||"";
 let elKey=localStorage.getItem(EL_KEY_STORE)||"";
 let elVoiceId=localStorage.getItem(EL_VOICE_ID_STORE)||"TX3LPaxmHKxFdv7VOQHJ";
+let unrealKey=localStorage.getItem(UNREAL_KEY_STORE)||"";
+let unrealVoice=localStorage.getItem(UNREAL_VOICE_STORE)||"Scarlett";
 let ttsProvider=localStorage.getItem(TTS_PROVIDER_KEY)||"browser";
 
 const VALID_MODELS=["llama-3.3-70b-versatile","meta-llama/llama-4-scout-17b-16e-instruct","llama-3.1-8b-instant","qwen/qwen3-32b","openai/gpt-oss-120b"];
@@ -909,6 +1001,7 @@ function restoreDraft() {
     const rpModal=document.getElementById('rp-modal');
     if(keyModal&&keyModal.classList.contains('open')){closeKeyModal();window.history.pushState({page:'chat'},'',window.location.href);return;}
     if(rpModal&&rpModal.classList.contains('open')){closeRPModal();window.history.pushState({page:'chat'},'',window.location.href);return;}
+    if(callActive){endCallMode();window.history.pushState({page:'chat'},'',window.location.href);return;}
     if(activeActionsRow){hideAllActions();window.history.pushState({page:'chat'},'',window.location.href);return;}
     window.history.pushState({page:'chat'},'',window.location.href);
   });
@@ -1153,6 +1246,9 @@ function openKeyModal(){
   const presetSel=document.getElementById("el-voice-preset");
   const matchedOpt=[...presetSel.options].find(o=>o.value===elVoiceId);
   presetSel.value=matchedOpt?elVoiceId:"custom";
+  document.getElementById("unreal-key-input").value=unrealKey;
+  const unrealSel=document.getElementById("unreal-voice-select");
+  if(unrealSel)unrealSel.value=unrealVoice||"Scarlett";
   populateBrowserVoiceSelect();
   switchTTSProvider(ttsProvider,false);
   document.getElementById("key-modal").classList.add("open");
@@ -1168,6 +1264,10 @@ function saveKey(){
   elKey=ek;if(ek)localStorage.setItem(EL_KEY_STORE,ek);
   const evId=document.getElementById("el-voice-id").value.trim();
   if(evId){elVoiceId=evId;localStorage.setItem(EL_VOICE_ID_STORE,evId);}
+  const uk=document.getElementById("unreal-key-input").value.trim();
+  unrealKey=uk;if(uk)localStorage.setItem(UNREAL_KEY_STORE,uk);
+  const uv=document.getElementById("unreal-voice-select").value;
+  if(uv){unrealVoice=uv;localStorage.setItem(UNREAL_VOICE_STORE,uv);}
   localStorage.setItem(TTS_PROVIDER_KEY,ttsProvider);
   const vs=document.getElementById("tts-voice-select");
   if(vs&&vs.value){selectedVoiceName=vs.value;localStorage.setItem(TTS_VOICE_KEY,selectedVoiceName);}
@@ -1180,8 +1280,10 @@ function switchTTSProvider(provider,save=true){
   if(save)localStorage.setItem(TTS_PROVIDER_KEY,provider);
   document.getElementById("tab-browser").classList.toggle("active",provider==="browser");
   document.getElementById("tab-elevenlabs").classList.toggle("active",provider==="elevenlabs");
+  document.getElementById("tab-unrealspeech").classList.toggle("active",provider==="unrealspeech");
   document.getElementById("tts-panel-browser").classList.toggle("active",provider==="browser");
   document.getElementById("tts-panel-elevenlabs").classList.toggle("active",provider==="elevenlabs");
+  document.getElementById("tts-panel-unrealspeech").classList.toggle("active",provider==="unrealspeech");
 }
 function fillELVoiceId(){
   const sel=document.getElementById("el-voice-preset");
@@ -1197,6 +1299,8 @@ function stopPreviewAudio(){
   if(bb){bb.innerHTML=ICON_SLIDERS+" Tester la voix";bb.classList.remove("playing","loading");}
   const eb=document.getElementById("el-test-btn");
   if(eb){eb.innerHTML=ICON_SLIDERS+" Tester ElevenLabs";eb.classList.remove("playing","loading");}
+  const ub=document.getElementById("unreal-test-btn");
+  if(ub){ub.innerHTML=ICON_SLIDERS+" Tester Unreal Speech";ub.classList.remove("playing","loading");}
 }
 
 const ICON_SLIDERS=`<span class="ic s12"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>`;
@@ -1292,12 +1396,13 @@ function toggleTTS(){
       if(!voices.length){showToast("Aucune voix disponible — configure ElevenLabs dans Paramètres.");return;}
     }
     if(ttsProvider==="elevenlabs"&&(!elKey||!elVoiceId)){showToast("Configure ElevenLabs dans Paramètres avant d'activer la voix.");return;}
+    if(ttsProvider==="unrealspeech"&&!unrealKey){showToast("Configure Unreal Speech dans Paramètres avant d'activer la voix.");return;}
   }
   ttsEnabled=!ttsEnabled;
   const btn=document.getElementById("tts-btn");
   btn.classList.toggle("on",ttsEnabled);
   if(!ttsEnabled){stopTTS();showToast("Voix désactivée");}
-  else showToast(ttsProvider==="elevenlabs"?"ElevenLabs activé":"Voix navigateur activée");
+  else showToast(ttsProvider==="elevenlabs"?"ElevenLabs activé":ttsProvider==="unrealspeech"?"Unreal Speech activé":"Voix navigateur activée");
 }
 
 function stopTTS(){
@@ -1339,8 +1444,9 @@ function updateTTSControls(){
 }
 
 // FIX 3 : speakText arrête l'audio en cours AVANT de lire le nouveau
-async function speakText(text){
-  if(!ttsEnabled){showToast("Active la voix (bouton Voix en haut) pour écouter les messages.");return;}
+// forceSingle=true : lit ce message sans activer le mode global TTS
+async function speakText(text, forceSingle=false){
+  if(!forceSingle && !ttsEnabled){showToast("Active la voix (bouton Voix en haut) pour écouter les messages.");return;}
   // Arrêter ce qui joue actuellement (même si en pause)
   stopTTS();
   const clean=text
@@ -1350,7 +1456,27 @@ async function speakText(text){
     .replace(/\s+/g,' ').trim();
   if(!clean)return;
   if(ttsProvider==="elevenlabs")await speakEL(clean);
+  else if(ttsProvider==="unrealspeech")await speakUnreal(clean);
   else speakBrowser(clean);
+}
+
+// Speak button on individual message: one-shot if TTS is off, otherwise feeds global queue
+function speakMsgBtn(btn){
+  const text=decodeAttr(btn.dataset.raw);
+  if(!ttsEnabled){
+    // Check if provider is configured
+    if(ttsProvider==="browser"){
+      if(!('speechSynthesis' in window)||window.Capacitor){showToast("Configure ElevenLabs dans Paramètres pour lire les messages.");return;}
+      const voices=window.speechSynthesis.getVoices();
+      if(!voices.length){showToast("Aucune voix — configure ElevenLabs dans Paramètres.");return;}
+    }
+    if(ttsProvider==="elevenlabs"&&(!elKey||!elVoiceId)){showToast("Configure ElevenLabs dans Paramètres pour lire ce message.");return;}
+    if(ttsProvider==="unrealspeech"&&!unrealKey){showToast("Configure Unreal Speech dans Paramètres pour lire ce message.");return;}
+    // Play this message only (one-shot), without enabling global TTS
+    speakText(text, true);
+  } else {
+    speakText(text, false);
+  }
 }
 
 function speakBrowser(clean){
@@ -1388,7 +1514,60 @@ async function speakEL(clean){
   }
 }
 
-// ===================== SESSION CTX MENU =====================
+// ===================== TTS — UNREAL SPEECH =====================
+async function fetchUnrealAudio(text, key, voice){
+  const res=await fetch("https://api.v8.unrealspeech.com/speech",{
+    method:"POST",
+    headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},
+    body:JSON.stringify({Text:text,VoiceId:voice,Bitrate:"192k",Speed:"0",Pitch:"1",TimestampType:"sentence"})
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.Message||`Erreur ${res.status}`);}
+  const data=await res.json();
+  const audioUrl=data?.OutputUri||data?.AudioUri||data?.output_uri;
+  if(!audioUrl)throw new Error("Aucune URL audio retournée");
+  return new Audio(audioUrl);
+}
+
+async function previewUnrealVoice(btn){
+  if(!btn)btn=document.getElementById("unreal-test-btn");
+  if(previewPlaying&&previewAudio){stopPreviewAudio();return;}
+  const key=document.getElementById("unreal-key-input").value.trim()||unrealKey;
+  const voice=document.getElementById("unreal-voice-select").value||unrealVoice;
+  if(!key){showToast("Remplis la clé Unreal Speech.");return;}
+  const statusEl=document.getElementById("unreal-status");
+  btn.innerHTML=ICON_SLIDERS+" Chargement...";btn.classList.add("loading");
+  if(statusEl){statusEl.textContent="Génération...";statusEl.className="api-status";}
+  try{
+    const audio=await fetchUnrealAudio("Bonjour, je suis OmniChat. Cette voix est Unreal Speech.",key,voice);
+    if(statusEl){statusEl.textContent="OK";statusEl.className="api-status ok";}
+    previewAudio=audio;previewPlaying=true;
+    btn.innerHTML=ICON_PAUSE_BARS+" Arrêter";btn.classList.remove("loading");btn.classList.add("playing");
+    audio.onended=()=>{previewPlaying=false;previewAudio=null;btn.innerHTML=ICON_SLIDERS+" Tester Unreal Speech";btn.classList.remove("playing");};
+    audio.onerror=()=>{previewPlaying=false;previewAudio=null;btn.innerHTML=ICON_SLIDERS+" Tester Unreal Speech";btn.classList.remove("playing");};
+    audio.play();
+  }catch(e){
+    btn.innerHTML=ICON_SLIDERS+" Tester Unreal Speech";btn.classList.remove("loading","playing");
+    if(statusEl){statusEl.textContent="Erreur: "+e.message;statusEl.className="api-status bad";}
+  }
+}
+
+async function speakUnreal(clean){
+  if(!unrealKey)return;
+  if(currentELAudio){currentELAudio.pause();currentELAudio=null;}
+  ttsSpeaking=true;ttsPaused=false;updateTTSControls();
+  try{
+    const audio=await fetchUnrealAudio(clean,unrealKey,unrealVoice||"Scarlett");
+    currentELAudio=audio;
+    audio.onended=()=>{ttsSpeaking=false;ttsPaused=false;currentELAudio=null;updateTTSControls();};
+    audio.onerror=()=>{ttsSpeaking=false;ttsPaused=false;currentELAudio=null;updateTTSControls();};
+    audio.play();
+  }catch(e){
+    ttsSpeaking=false;ttsPaused=false;updateTTSControls();
+    showToast("Unreal Speech erreur: "+e.message);
+  }
+}
+
+
 function openSessCtxMenu(e,sessionId){
   e.stopPropagation();ctxSessionId=sessionId;
   const menu=document.getElementById("sess-ctx-menu");
@@ -1464,6 +1643,8 @@ function resumeSession(id){
   renderMessages();
   closeSidebar();
   renderSessions();
+  // Ensure last-bot-actions is always visible after resuming
+  setTimeout(markLastBotActions, 50);
 }
 function newChat(){
   currentSessionId=null;chatHistory=[];stopTTS();
@@ -1537,7 +1718,7 @@ function appendMessage(role,content,animate=true,attachment=null,historyIndex){
     const autoBadge=autoMatch?`<div class="auto-badge"><span class="ic s12">${lightningIcon}</span> Recherche auto</div>`:"";
     const {thinkHtml,contentHtml}=renderBotContent(displayContentClean);
     const editBtnHtml=`<button class="bot-act rp-only-btn" onclick="editBotMsg(this,${hIdx})" title="Modifier (RP)" style="${modes.rp?'':'display:none'}"><span class="ic s12">${editIcon}</span> Modifier</button>`;
-    const speakBtnHtml=`<button class="bot-act" onclick="speakText(decodeAttr(this.dataset.raw))" data-raw="${escAttr(displayContentClean)}" title="Lire à voix haute"><span class="ic s12">${speakIcon}</span></button>`;
+    const speakBtnHtml=`<button class="bot-act" onclick="speakMsgBtn(this)" data-raw="${escAttr(displayContentClean)}" title="Lire ce message"><span class="ic s12">${speakIcon}</span></button>`;
     row.innerHTML=`<div class="msg-inner"><div class="bot-row-wrap"><div class="bot-content">${webBadge}${autoBadge}${thinkHtml}<div class="bot-text">${contentHtml}</div>${sourcesHtml}<div class="bot-actions"><button class="bot-act" onclick="copyBotMsg(this)" data-raw="${escAttr(displayContentClean)}" title="Copier"><span class="ic s12">${copyIcon}</span> Copier</button>${speakBtnHtml}${editBtnHtml}<button class="bot-act" onclick="regenMsg(${hIdx})" title="Régénérer"><span class="ic s12">${regenIcon}</span> Régénérer</button></div></div></div></div>`;
   }
   container.appendChild(row);
@@ -2331,8 +2512,218 @@ if(window.visualViewport){
   });
 }
 
-if(!groqKey||groqKey.length<8)setTimeout(()=>showToast("Entre ta clé Groq pour commencer — bouton Clé API en haut",5000),2200);
+// ===================== DYNAMIC SUGGESTIONS =====================
+const ALL_SUGGESTIONS = [
+  // Actualités & Web
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`, text:"Dernières actualités du jour", msg:"Quelles sont les dernières actualités aujourd'hui ?" },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`, text:"Quoi de neuf en technologie ?", msg:"Quelles sont les dernières nouveautés en technologie et intelligence artificielle ?" },
+  // RP
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`, text:"Lancer un roleplay", action:"startRP" },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`, text:"Scénario mystère & enquête", msg:"Lance un scénario de roleplay enquête policière dans les années 1920 à Paris." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`, text:"Aventure fantastique", msg:"Lance un roleplay dans un univers fantastique médiéval. Je joue un mage en fuite." },
+  // Rédaction
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`, text:"Email professionnel", msg:"Écris-moi un email professionnel pour demander une réunion." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`, text:"Lettre de motivation", msg:"Aide-moi à rédiger une lettre de motivation percutante." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`, text:"Post LinkedIn accrocheur", msg:"Écris un post LinkedIn engageant sur un sujet de mon choix." },
+  // Savoir & Curiosité
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`, text:"Explique-moi l'IA simplement", msg:"Explique-moi comment fonctionne l'IA en termes simples." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`, text:"Comment fonctionne le cerveau ?", msg:"Explique-moi comment fonctionne le cerveau humain de façon simple et fascinante." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`, text:"Fait insolite du jour", msg:"Donne-moi un fait scientifique ou historique surprenant et fascinant." },
+  // Code
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`, text:"Aide en programmation", msg:"J'ai besoin d'aide avec du code. Dis-moi quel langage ou problème tu veux résoudre." },
+  { icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`, text:"Explique ce code", msg:"Explique-moi ce que fait ce code et comment l'améliorer." },
+];
+
+function getTimedSuggestions(){
+  const h=new Date().getHours();
+  // Matin (6-11): actualités + curiosité
+  // Soir (18-23): RP + rédaction
+  // Autre: mixte
+  let pool=[...ALL_SUGGESTIONS];
+  if(h>=6&&h<12) pool.sort((a,b)=>{ const webA=a.msg&&a.msg.includes("actualité")?-1:0; return webA; });
+  else if(h>=18||h<4) pool.sort((a,b)=>{ const rpA=a.action==="startRP"?-1:0; return rpA; });
+  // Shuffle with daily seed for variety
+  const seed=Math.floor(Date.now()/86400000);
+  const seeded=(i)=>(i*2654435761+seed)%pool.length;
+  const picks=[];const used=new Set();
+  for(let i=0;picks.length<4&&i<pool.length*2;i++){
+    const idx=seeded(i)%pool.length;
+    if(!used.has(idx)){used.add(idx);picks.push(pool[idx]);}
+  }
+  return picks.length===4?picks:ALL_SUGGESTIONS.slice(0,4);
+}
+
+function renderSuggestions(){
+  const grid=document.getElementById("suggestions-grid");
+  if(!grid)return;
+  const picks=getTimedSuggestions();
+  grid.innerHTML=picks.map(s=>`
+    <div class="sug-card" onclick="${s.action?s.action+'()':'fillMsg('+JSON.stringify(s.msg)+')'}">
+      <div class="sug-icon"><span class="ic s18">${s.icon}</span></div>
+      <div class="sug-text">${s.text}</div>
+    </div>`).join("");
+}
+
+// Hide suggestions when user types, restore when empty
+document.getElementById("msg-input").addEventListener("input", function(){
+  const welcome=document.getElementById("welcome");
+  if(!welcome||welcome.style.display==="none")return;
+  const grid=document.getElementById("suggestions-grid");
+  if(!grid)return;
+  if(this.value.trim().length>0){
+    grid.style.opacity="0";grid.style.pointerEvents="none";grid.style.transform="translateY(-4px)";
+    grid.style.transition="all .18s ease";
+  } else {
+    grid.style.opacity="1";grid.style.pointerEvents="";grid.style.transform="";
+  }
+});
+
+renderSuggestions();
+
+// ===================== CALL MODE =====================
+let callActive=false, callMuted=false, callMediaRecorder=null, callStream=null;
+let callListening=false, callProcessing=false;
+
+function toggleCallMode(){
+  if(callActive)endCallMode();else startCallMode();
+}
+
+async function startCallMode(){
+  if(!groqKey||groqKey.length<8){openKeyModal();return;}
+  if(ttsProvider==="elevenlabs"&&(!elKey||!elVoiceId)){showToast("Configure ElevenLabs dans Paramètres pour le mode appel.");return;}
+  if(ttsProvider==="unrealspeech"&&!unrealKey){showToast("Configure Unreal Speech dans Paramètres pour le mode appel.");return;}
+  try{
+    callStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){showToast("Micro inaccessible : "+e.message);return;}
+  callActive=true;callMuted=false;callListening=false;callProcessing=false;
+  document.getElementById("call-overlay").classList.add("show");
+  document.getElementById("call-btn").classList.add("active");
+  window.history.pushState({page:'call-mode'},'',window.location.href);
+  if(!ttsEnabled){ttsEnabled=true;document.getElementById("tts-btn").classList.add("on");}
+  setCallStatus("listening");
+  callListenLoop();
+}
+
+function endCallMode(){
+  callActive=false;callListening=false;callProcessing=false;
+  if(callMediaRecorder&&callMediaRecorder.state!=="inactive"){try{callMediaRecorder.stop();}catch{}}
+  if(callStream){callStream.getTracks().forEach(t=>t.stop());callStream=null;}
+  stopTTS();
+  document.getElementById("call-overlay").classList.remove("show");
+  document.getElementById("call-btn").classList.remove("active");
+  setCallStatus("Initialisation…");
+  document.getElementById("call-transcript").textContent="";
+}
+
+function toggleCallMute(){
+  callMuted=!callMuted;
+  const btn=document.getElementById("call-mute-btn");
+  const lbl=document.getElementById("call-mute-label");
+  btn.classList.toggle("muted",callMuted);
+  if(lbl)lbl.textContent=callMuted?"Réactiver micro":"Couper micro";
+  if(callStream)callStream.getTracks().forEach(t=>t.enabled=!callMuted);
+  setCallStatus(callMuted?"Micro coupé":"listening");
+}
+
+function setCallStatus(state){
+  const el=document.getElementById("call-status");
+  const av=document.getElementById("call-avatar");
+  if(!el||!av)return;
+  av.classList.remove("listening","speaking","thinking");
+  if(state==="listening"){el.textContent="À l'écoute";av.classList.add("listening");}
+  else if(state==="speaking"){el.textContent="OmniChat parle…";av.classList.add("speaking");}
+  else if(state==="thinking"){el.textContent="Réflexion…";av.classList.add("thinking");}
+  else{el.textContent=state;}
+}
+
+async function callListenLoop(){
+  if(!callActive||callMuted){if(callActive)setTimeout(callListenLoop,400);return;}
+  callListening=true;
+  const chunks=[];
+  try{
+    const mr=new MediaRecorder(callStream,{mimeType:"audio/webm"});
+    callMediaRecorder=mr;
+    mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    mr.start(100);
+    await new Promise(resolve=>{
+      let hasSpeech=false,silenceStart=null;
+      const ctx=new(window.AudioContext||window.webkitAudioContext)();
+      const src=ctx.createMediaStreamSource(callStream);
+      const analyser=ctx.createAnalyser();analyser.fftSize=512;
+      src.connect(analyser);
+      const buf=new Uint8Array(analyser.frequencyBinCount);
+      const maxStop=setTimeout(()=>{ctx.close();if(mr.state!=="inactive")try{mr.stop();}catch{} resolve();},8000);
+      const check=()=>{
+        if(!callActive){clearTimeout(maxStop);ctx.close();resolve();return;}
+        analyser.getByteFrequencyData(buf);
+        const avg=buf.reduce((a,b)=>a+b,0)/buf.length;
+        if(avg>10){hasSpeech=true;silenceStart=null;}
+        else if(hasSpeech){
+          if(!silenceStart)silenceStart=Date.now();
+          if(Date.now()-silenceStart>1800){clearTimeout(maxStop);ctx.close();if(mr.state!=="inactive")try{mr.stop();}catch{} resolve();return;}
+        }
+        requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+      mr.onstop=()=>{clearTimeout(maxStop);ctx.close();resolve();};
+    });
+  }catch(e){callListening=false;if(callActive)setTimeout(callListenLoop,600);return;}
+  callListening=false;
+  if(!callActive||!chunks.length){if(callActive)setTimeout(callListenLoop,300);return;}
+  callProcessing=true;setCallStatus("thinking");
+  try{
+    const blob=new Blob(chunks,{type:"audio/webm"});
+    const fd=new FormData();fd.append("file",blob,"call.webm");fd.append("model","whisper-large-v3-turbo");fd.append("language","fr");
+    const tr=await fetch("https://api.groq.com/openai/v1/audio/transcriptions",{method:"POST",headers:{"Authorization":`Bearer ${groqKey}`},body:fd});
+    if(!tr.ok)throw new Error("Transcription échouée");
+    const td=await tr.json();
+    const transcript=(td.text||"").trim();
+    if(!transcript||transcript.length<2){setCallStatus("listening");callProcessing=false;if(callActive)setTimeout(callListenLoop,300);return;}
+    document.getElementById("call-transcript").textContent=transcript;
+    if(!currentSessionId)currentSessionId="sess_"+Date.now();
+    chatHistory.push({role:"user",content:transcript});
+    appendMessage("user",transcript,true,null,chatHistory.length-1);
+    const reply=await callGroq(transcript,null);
+    chatHistory.push({role:"assistant",content:reply});
+    appendMessage("bot",reply,true,null,chatHistory.length-1);
+    saveCurrentSession();
+    setCallStatus("speaking");
+    await callSpeakAndWait(reply);
+    document.getElementById("call-transcript").textContent="";
+  }catch(e){showToast("Erreur appel: "+e.message);}
+  callProcessing=false;
+  if(callActive){setCallStatus("listening");setTimeout(callListenLoop,400);}
+}
+
+async function callSpeakAndWait(text){
+  return new Promise(async resolve=>{
+    const clean=text.replace(/```[\s\S]*?```/g,' ').replace(/<[^>]+>/g,' ').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*\n]+)\*/g,'$1').replace(/#{1,6}\s/g,' ').replace(/\s+/g,' ').trim().slice(0,600);
+    if(!clean){resolve();return;}
+    stopTTS();
+    if(ttsProvider==="elevenlabs"&&elKey&&elVoiceId){
+      try{const audio=await fetchELAudio(clean,elKey,elVoiceId);currentELAudio=audio;ttsSpeaking=true;updateTTSControls();audio.onended=()=>{ttsSpeaking=false;currentELAudio=null;updateTTSControls();resolve();};audio.onerror=()=>{ttsSpeaking=false;currentELAudio=null;updateTTSControls();resolve();};audio.play();}catch{resolve();}return;
+    }
+    if(ttsProvider==="unrealspeech"&&unrealKey){
+      try{const audio=await fetchUnrealAudio(clean,unrealKey,unrealVoice||"Scarlett");currentELAudio=audio;ttsSpeaking=true;updateTTSControls();audio.onended=()=>{ttsSpeaking=false;currentELAudio=null;updateTTSControls();resolve();};audio.onerror=()=>{ttsSpeaking=false;currentELAudio=null;updateTTSControls();resolve();};audio.play();}catch{resolve();}return;
+    }
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(clean);
+      const voices=window.speechSynthesis.getVoices();
+      let voice=selectedVoiceName?voices.find(v=>v.name===selectedVoiceName):null;
+      if(!voice)voice=voices.find(v=>/premium|enhanced/i.test(v.name)&&v.lang.startsWith('fr'))||voices.find(v=>v.lang.startsWith('fr'))||null;
+      if(voice){u.voice=voice;u.lang=voice.lang;}else u.lang='fr-FR';
+      ttsSpeaking=true;updateTTSControls();
+      u.onend=()=>{ttsSpeaking=false;updateTTSControls();resolve();};
+      u.onerror=()=>{ttsSpeaking=false;updateTTSControls();resolve();};
+      window.speechSynthesis.speak(u);return;
+    }
+    resolve();
+  });
+}
+
 </script>
 </body>
 </html>
+
 
