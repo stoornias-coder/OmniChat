@@ -5633,6 +5633,36 @@ async function loadCloudApiKeys() {
 const SUPABASE_URL = "https://rfonkhqxoqekucutesvs.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmb25raHF4b3Fla3VjdXRlc3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTMzMTIsImV4cCI6MjA5MjYyOTMxMn0.7D4aaH5j0jvdeVcig8cBkShvbS8kPStZUSTPV9RWgjU";
 
+const API_BASE_URL = "https://ominichat-core.onrender.com";
+
+// ── Client API backend (auth uniquement pour l'instant) ─────────────────────
+// Le backend (ominichat-core) est la source de vérité pour signup/login :
+// il crée/valide le compte Supabase Auth et renvoie une session
+// { access_token, refresh_token, ... }. On hydrate ensuite le client
+// Supabase local (sb.auth.setSession) avec cette session pour que tout le
+// reste du code (sb.from, sb.rpc, getSession, onAuthStateChange, refresh
+// auto) continue de fonctionner exactement comme avant, sans y toucher.
+async function apiAuthCall(path, body) {
+  let res;
+  try {
+    res = await fetch(API_BASE_URL + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    const err = new Error("Impossible de contacter le serveur. Vérifie ta connexion.");
+    err.cause = e;
+    throw err;
+  }
+  let data = {};
+  try { data = await res.json(); } catch(e) { /* réponse vide/non-JSON */ }
+  if (!res.ok) {
+    throw new Error(data.error || "Erreur serveur.");
+  }
+  return data;
+}
+
 let sb = null;
 let currentUser = null; window.currentUser = null; window.currentUser = null; window.currentUser = null;
 
@@ -5773,10 +5803,11 @@ async function handleAuth() {
   }, 15000);
 
   try {
-    dbg("signIn start");
-    let result;
+    dbg("auth start");
+    let session;
     if (authMode === "login") {
-      result = await sb.auth.signInWithPassword({ email, password: pass });
+      const data = await apiAuthCall("/api/auth/login", { email, password: pass });
+      session = data.session;
     } else {
       const name = document.getElementById("auth-name").value.trim() || email.split("@")[0];
       // Vérifier l'unicité du pseudo avant la création du compte
@@ -5791,17 +5822,26 @@ async function handleAuth() {
           resetBtn(); return;
         }
       }
-      result = await sb.auth.signUp({ email, password: pass, options: { data: { display_name: name } } });
-      if (!result.error && result.data.user && !result.data.session) {
+      const data = await apiAuthCall("/api/auth/signup", { email, password: pass, name });
+      if (data.requiresEmailConfirmation) {
         clearTimeout(safetyTimeout);
         showAuthError("Compte créé ! Vérifie ton email pour confirmer.");
         resetBtn(); return;
       }
+      session = data.session;
     }
-    dbg("signIn done");
+    dbg("auth done");
+    // Hydrate le client Supabase local avec la session émise par le backend :
+    // tout le reste (sb.from, sb.rpc, getSession, refresh auto...) continue
+    // de fonctionner sans modification.
+    const { error: setErr } = await sb.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (setErr) throw setErr;
+    const { data: { session: sbSession } } = await sb.auth.getSession();
     clearTimeout(safetyTimeout);
-    if (result.error) throw result.error;
-    currentUser = window.currentUser = result.data.user;
+    currentUser = window.currentUser = sbSession?.user || null;
     dbg("user ok");
     resetBtn(); // reset AVANT onAuthSuccess
     await onAuthSuccess();
