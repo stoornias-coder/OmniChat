@@ -1,0 +1,257 @@
+--- a/core/search/webSearch.js
++++ b/core/search/webSearch.js
+@@ -819,7 +819,9 @@
+ const FUZZY_WORK_TERM = /\b(film|movie|cin[eé]ma|s[eé]rie|series|drama|k.?drama|kdrama|anime|dorama|manga|webtoon|manhwa|roman|livre|novel|jeu|game)\b/i;
+ const FUZZY_IDENT_CUE = /\b(il\s+y\s+a|ya|je\s+cherche|tu\s+(?:sais|connais))\b.*\b(film|s[eé]rie|drama|anime|dorama)\b|\b(?:vieux|ancien|old)\b.*\b(film|s[eé]rie|drama|anime)\b/i;
+ const FUZZY_MEMORY_CUE = /(?:me\s+(?:souviens|rappelle)|retrouve)\s+(?:plus|pas)|(?:oubli[eé]|forgot|forgotten)\s+(?:le\s+|the\s+)?(?:titre|title|nom)|titre\s+m['’]?[eé]chappe|c['’]est\s+quoi\s+(?:ce|cette|le|la)\s+(?:film|s[eé]rie|drama|anime|dorama)|(?:quel|quelle)\s+(?:est\s+)?(?:ce\s+|cette\s+|le\s+|la\s+)?(?:film|s[eé]rie|drama|anime|dorama)|can['’]?t\s+remember/i;
+-const FUZZY_NAME_STOP = new Set(('je il elle on tu nous vous ils elles c ce cet cette ces le la les un une des du de et ou mais donc si ya salut bonjour coucou hey hello merci film drama serie série anime coréen coreen coréenne japonais chinois netflix youtube google après alors donc bref voici voilà enfin quand comment pourquoi').split(/\s+/));
++const FUZZY_NAME_STOP = new Set(('je il elle on tu nous vous ils elles c ce cet cette ces le la les un une des du de et ou mais donc si ya salut bonjour coucou hey hello merci film drama serie série anime coréen coreen coréenne japonais chinois netflix youtube google après alors donc bref voici voilà enfin quand comment pourquoi ' +
++  // Interrogatifs : "Qui joue Robin...", "Quels modèles Groq..." ne doivent jamais produire "Qui"/"Quels" comme indice de nom.
++  'qui quel quelle quels quelles où').split(/\s+/));
+ // Élisions grammaticales (c'/j'/n'/m'/t'/s'/d' + mot) : jamais un nom propre, quelle que soit sa position.
+ const FUZZY_ELISION_RX = /^[cjnmtsd]['’]/i;
+ 
+@@ -988,10 +990,26 @@
+ }
+ 
+ const isFuzzyText = (t) => (FUZZY_IDENT_CUE.test(t) || FUZZY_MEMORY_CUE.test(t)) && FUZZY_WORK_TERM.test(t);
++// Question précise AUTONOME (« Qui joue Robin dans Seducing Mr. Perfect ? », « Quels modèles Groq... ? ») :
++// ouverte par un interrogatif, elle porte déjà son propre sujet et n'est jamais le maillon d'une
++// identification floue en cours — même si un message précédent contenait « film coréen », « patron »,
++// « années 2000 »... Sans cette garde, un simple mot capitalisé de la question (« Groq », « Seducing »)
++// suffisait à la rattacher à l'historique et à déclencher des requêtes « korean film 2000s boss English ».
++// Exception : la question qui désigne EXPLICITEMENT l'œuvre inconnue (« Qui joue Robin dans ce film ? »,
++// « ... dans le film ? ») reste un vrai suivi. Les vrais suivis (déclaratifs : « Robin était le patron... »,
++// « C'est un film coréen, pas un drama. ») ne commencent pas par un interrogatif et ne sont pas concernés.
++const FUZZY_QUESTION_OPENER_RX = /^(?:(?:et|mais|dis[-\s]moi|dites[-\s]moi|dis|dites)[\s,]+)?(?:qui|quel(?:le)?s?|quand|o[uù]|pourquoi|comment)(?=[\s,?!'’]|$)/i;
++const FUZZY_DEICTIC_WORK_RX = /\b(?:ce|cet|cette|le|la|l['’]|this|that|the)\s?(?:film|movie|s[eé]rie|series|drama|k.?drama|kdrama|anime|dorama|manga|webtoon|manhwa|roman|livre|novel|jeu|game|[oœ]uvre|personnage|character)(?![\wÀ-ÿ])/i;
++const isStandaloneQuestion = (t) =>
++  (FUZZY_QUESTION_OPENER_RX.test(t) || FUZZY_QUESTION_OPENER_RX.test(stripFiller(t))) && !FUZZY_DEICTIC_WORK_RX.test(t);
+ // Gate côté message COURANT : un indice de suivi peut être un simple nom propre, sans répéter
+ // "film/drama" (ex. « Robin était le patron du personnage féminin. »), ou un indice purement
+ // temporel (ex. « Et je crois que ça date des années 2000. »).
+-const hasIdentificationClue = (t) => FUZZY_WORK_TERM.test(t) || !!fuzzyGeoMatch(t) || extractProperNouns(t).length > 0 || !!detectTimePeriod(t);
++// Un suivi court porteur d'un simple indice d'axe (rôle, langue parlée, genre, format...) est aussi un indice
++// exploitable (« Il est le patron de l'héroïne et parle souvent anglais. ») : réutilise isShortAxisFollowUp,
++// déjà employé pour les maillons intermédiaires. Reste borné par le gate d'historique et la garde
++// isStandaloneQuestion : un message sans rapport ne s'y rattache pas.
++const hasIdentificationClue = (t) => FUZZY_WORK_TERM.test(t) || !!fuzzyGeoMatch(t) || extractProperNouns(t).length > 0 || !!detectTimePeriod(t) || isShortAxisFollowUp(t);
+ 
+ /**
+  * Nombre d'axes distincts (géo, format, rôle, langue parlée, genre, époque) détectés dans UN message
+@@ -1058,6 +1076,8 @@
+   let followUp = false;
+ 
+   if (!isFuzzyText(q)) {
++    // Question précise autonome : jamais rattachée à l'historique (voir isStandaloneQuestion).
++    if (isStandaloneQuestion(q)) return null;
+     const hist = Array.isArray(historyHint) && historyHint.length
+       ? historyHint
+       : (typeof contextHint === 'string' && contextHint ? [contextHint] : []);
+--- a/core/search/webSearch.test.js
++++ b/core/search/webSearch.test.js
+@@ -1325,3 +1325,162 @@
+   // Un film récent n'est pas non plus écarté quand rien n'a été demandé côté époque.
+   assert.equal(ws._internal.assessFuzzyResults([BOSS_2025_WITH_ROBIN], f).candidate.title, 'Quixboss (2025 film)');
+ });
++
++// ─────────────── Partie 6 : contextHint — une question précise n'hérite pas d'une ancienne recherche floue ───────────────
++// Bug corrigé : « Qui joue Robin dans Seducing Mr. Perfect ? » posée juste après une identification floue
++// (« film coréen », « patron », « parle anglais », « années 2000 ») était rattachée à ce message précédent
++// (le mot capitalisé « Seducing »/« Groq » comptait comme indice, et « Qui »/« Quels » comme nom propre), puis
++// déclenchait les requêtes de secours « korean film 2000s boss English Robin... » qui ramenaient
++// Boss (2025), Yonhap Boss, Introverted Boss... alors que la question nommait déjà le titre.
++
++const CTX_FUZZY_PREV = "Je cherche un film coréen des années 2000 avec Robin, patron de l'héroïne, qui parle anglais.";
++const CTX_PRECISE_Q = 'Qui joue Robin dans Seducing Mr. Perfect ?';
++const CTX_GROQ_Q = 'Quels sont les modèles Groq disponibles gratuitement actuellement ?';
++
++// Enregistre uniquement les requêtes envoyées à Tavily (ignore un éventuel appel d'endpoint officiel).
++function tavilyRecorder(results) {
++  const queries = [];
++  const fetchImpl = async (url, init) => {
++    if (init && typeof init.body === 'string') {
++      try { const b = JSON.parse(init.body); if (typeof b.query === 'string') queries.push(b.query); } catch { /* pas Tavily */ }
++    }
++    return mkRes(200, okBody(results));
++  };
++  return { queries, fetchImpl };
++}
++
++// 1er passage volontairement FAIBLE : une fiche du bon film qui cite Robin mais ne confirme ni « boss » ni « English ».
++// C'est le seul cas où l'ancienne version déclenchait l'extension fuzzy (extras non confirmés).
++const SEDUCING_WEAK_HIT = {
++  title: 'Seducing Mr. Perfect - Wikipedia', url: 'https://en.wikipedia.org/wiki/Seducing_Mr._Perfect', domain: 'en.wikipedia.org',
++  content: 'Seducing Mr. Perfect is a 2006 South Korean romantic comedy film starring Daniel Henney and Uhm Jung-hwa. Robin is a character.', score: 0.8,
++};
++
++test('CONTEXTHINT A. question précise après recherche fuzzy : aucun suivi fuzzy hérité, 1 seule requête centrée sur le titre', async () => {
++  assert.equal(ws._internal.detectFuzzyIdentification(CTX_PRECISE_Q, CTX_FUZZY_PREV), null, 'pas de followUp fuzzy hérité (contextHint)');
++  assert.equal(ws._internal.detectFuzzyIdentification(CTX_PRECISE_Q, null, [CTX_FUZZY_PREV]), null, 'idem via historyHint');
++  assert.equal(ws._internal.detectFuzzyIdentification(CTX_PRECISE_Q, ROBIN_MSG1), null, 'idem avec le message A complet');
++
++  const rec = tavilyRecorder([SEDUCING_WEAK_HIT]);
++  const { o } = opts(rec.fetchImpl, { skipIntentCheck: true, contextHint: CTX_FUZZY_PREV });
++  const r = await ws.searchWeb(CTX_PRECISE_Q, o);
++  assert.equal(rec.queries.length, 1, `une seule requête Tavily (reçu : ${JSON.stringify(rec.queries)})`);
++  assert.match(rec.queries[0], /Seducing Mr\. Perfect/);
++  assert.doesNotMatch(rec.queries[0], /korean|coréen|boss|patron|english|anglais|2000/i, 'aucun indice du message précédent dans la requête');
++  assert.equal(r.meta.fuzzy.triggered, false);
++  assert.equal(r.queries.length, 1);
++});
++
++test('CONTEXTHINT A bis. la même question, avec ou sans contextHint, produit exactement les mêmes requêtes', async () => {
++  const withHint = tavilyRecorder([SEDUCING_WEAK_HIT]);
++  const withoutHint = tavilyRecorder([SEDUCING_WEAK_HIT]);
++  await ws.searchWeb(CTX_PRECISE_Q, opts(withHint.fetchImpl, { skipIntentCheck: true, contextHint: CTX_FUZZY_PREV }).o);
++  await ws.searchWeb(CTX_PRECISE_Q, opts(withoutHint.fetchImpl, { skipIntentCheck: true }).o);
++  assert.deepEqual(withHint.queries, withoutHint.queries);
++});
++
++test('CONTEXTHINT A ter. autres questions de casting précises : jamais rattachées à l\'historique', () => {
++  for (const q of [
++    'Quel acteur joue Robin dans Stranger Things ?',
++    'Qui interprète Robin dans Seducing Mr. Perfect ?',
++    'Et qui joue Robin dans Seducing Mr. Perfect ?',
++    'Dis-moi qui joue Robin dans Seducing Mr. Perfect ?',
++    'Quelle actrice joue le rôle principal dans Seducing Mr. Perfect ?',
++    'Où a été tourné Seducing Mr. Perfect ?',
++    'Quand est sorti Seducing Mr. Perfect ?',
++  ]) {
++    assert.equal(ws._internal.detectFuzzyIdentification(q, CTX_FUZZY_PREV), null, q);
++    assert.equal(ws._internal.detectFuzzyIdentification(q, null, [ROBIN_MSG1]), null, q + ' (historyHint)');
++  }
++});
++
++test('CONTEXTHINT B. recherche Groq indépendante : aucune continuité fuzzy, aucune requête cinéma', async () => {
++  for (const prev of [CTX_FUZZY_PREV, ROBIN_MSG1, 'Tu as vu le film Inception ?', CTX_PRECISE_Q]) {
++    assert.equal(ws._internal.detectFuzzyIdentification(CTX_GROQ_Q, prev), null, `pas de suivi fuzzy après « ${prev.slice(0, 40)}… »`);
++  }
++  const rec = tavilyRecorder([
++    { title: 'Supported Models - GroqCloud', url: 'https://console.groq.com/docs/models', content: 'Groq models available: llama, gpt-oss', score: 0.7 },
++  ]);
++  const { o } = opts(rec.fetchImpl, { skipIntentCheck: true, contextHint: CTX_FUZZY_PREV });
++  const r = await ws.searchWeb(CTX_GROQ_Q, o);
++  assert.equal(rec.queries.length, 1, `une seule requête (reçu : ${JSON.stringify(rec.queries)})`);
++  for (const q of rec.queries) {
++    assert.match(q, /groq/i, 'la recherche reste centrée sur Groq');
++    assert.doesNotMatch(q, /film|movie|korean|coréen|robin|boss|seducing/i, 'aucun terme cinéma');
++  }
++  assert.equal(r.meta.fuzzy.triggered, false);
++});
++
++test('CONTEXTHINT C. vraie continuité fuzzy : les indices des deux messages sont fusionnés', async () => {
++  const first = 'Je cherche un film coréen des années 2000 avec un personnage masculin nommé Robin.';
++  const second = "Il est le patron de l'héroïne et parle souvent anglais.";
++  const f = ws._internal.detectFuzzyIdentification(second, first);
++  assert.ok(f, 'le second message est rattaché au premier');
++  assert.equal(f.followUp, true);
++  assert.equal(f.geoLabel, 'korean', 'indice du 1er message conservé');
++  assert.ok(f.names.some((n) => n.toLowerCase() === 'robin'), 'nom du 1er message conservé');
++  assert.ok(f.time && f.time.min === 2000 && f.time.max === 2009, 'période du 1er message conservée');
++  assert.ok(f.role.some((x) => x.label === 'boss'), 'rôle du 2nd message ajouté');
++  assert.ok(f.language.some((x) => x.label === 'English'), 'langue du 2nd message ajoutée');
++  assert.ok(f.text.includes('film coréen') && f.text.includes('patron'), 'texte cumulé des deux messages');
++
++  // Les autres formes de suivi courantes restent des suivis.
++  for (const follow of [
++    "Robin était le patron de l'héroïne.",
++    "C'est un film coréen, pas un drama.",
++    'Le personnage parlait souvent anglais.',
++    'Et je crois que ça date des années 2000.',
++    "C'est une romance coréenne.",
++    'Qui joue Robin dans ce film coréen ?',   // question, mais elle désigne l'œuvre inconnue
++    'Qui est le patron dans ce film ?',
++  ]) {
++    const c = ws._internal.detectFuzzyIdentification(follow, first);
++    assert.ok(c && c.followUp, `suivi conservé : « ${follow} »`);
++  }
++
++  // Intégration : le suivi déclenche bien l'extension (2 à 3 requêtes Tavily, jamais plus).
++  let n = 0;
++  const fetchImpl = async () => {
++    n++;
++    return mkRes(200, okBody([{ title: 'Unrelated generic result', url: `https://example.org/u${n}`, domain: 'example.org', content: 'Nothing useful here, generic content unrelated to the search at all.', score: 0.2 }]));
++  };
++  const { o } = opts(fetchImpl, { skipIntentCheck: true, contextHint: first });
++  const r = await ws.searchWeb(second, o);
++  assert.ok(n >= 2 && n <= 3, `extension fuzzy réelle, plafond respecté (appels : ${n})`);
++  assert.equal(r.meta.fuzzy.triggered, true);
++});
++
++test('CONTEXTHINT D. les interrogatifs ne deviennent jamais des noms propres', () => {
++  const INTERROGATIVE = /^(qui|quel|quelle|quels|quelles|quand|où|pourquoi|comment)$/i;
++  // Messages d'identification floue (donc analysés) qui COMMENCENT par un interrogatif.
++  for (const m of [
++    'Quel est ce film coréen avec Robin ?',
++    'Quelle est cette série coréenne où Robin est le patron ?',
++    "Quels acteurs jouent dans ce film coréen ? Je ne me souviens plus du titre, avec Robin.",
++    "Qui est le patron Robin dans ce film coréen dont j'ai oublié le titre ?",
++    "Quand est sorti ce film coréen dont j'ai oublié le titre, avec Robin ?",
++    "Pourquoi ce film coréen avec Robin ? Je ne me souviens plus du titre.",
++    "Comment s'appelle ce film coréen avec Robin, je ne me souviens plus du titre ?",
++  ]) {
++    const f = ws._internal.detectFuzzyIdentification(m, null);
++    assert.ok(f, `analysé comme identification floue : « ${m} »`);
++    assert.ok(f.names.some((n) => n.toLowerCase() === 'robin'), `« Robin » reste un nom : « ${m} »`);
++    assert.deepEqual(f.names.filter((n) => INTERROGATIVE.test(n)), [], `aucun interrogatif dans les noms : ${JSON.stringify(f.names)}`);
++  }
++  // Et, dans un suivi, l'interrogatif de la question ne pollue pas non plus les indices (cas « ce film »).
++  const f = ws._internal.detectFuzzyIdentification('Qui joue Robin dans ce film coréen ?', CTX_FUZZY_PREV);
++  assert.ok(f && f.followUp);
++  assert.deepEqual(f.names.filter((n) => INTERROGATIVE.test(n)), [], JSON.stringify(f.names));
++});
++
++test('CONTEXTHINT E. non-régression : identification à partir de plusieurs indices incomplets, multi-tour', () => {
++  const c1 = ws._internal.detectFuzzyIdentification(ROBIN_MSG1, null);
++  assert.ok(c1 && c1.followUp === false && c1.geoLabel === 'korean');
++  const c2 = ws._internal.detectFuzzyIdentification(ROBIN_MSG2, null, [ROBIN_MSG1]);
++  assert.ok(c2 && c2.followUp && c2.genre.some((g) => g.label === 'romance'));
++  const c3 = ws._internal.detectFuzzyIdentification(ROBIN_MSG3, null, [ROBIN_MSG1, ROBIN_MSG2]);
++  assert.ok(c3 && c3.time && c3.time.min === 2000 && c3.role.some((x) => x.label === 'boss'));
++  // Un message sans aucun indice exploitable n'est pas rattaché (comportement inchangé).
++  assert.equal(ws._internal.detectFuzzyIdentification('je pense que oui.', ROBIN_MSG1), null);
++  assert.equal(ws._internal.detectFuzzyIdentification('Merci beaucoup !', ROBIN_MSG1), null);
++});
+--- a/index.html
++++ b/index.html
+@@ -4436,6 +4436,30 @@
+   } catch (e) { return undefined; }
+ }
+ 
++// contextHint (message précédent) : transmis au backend UNIQUEMENT pour un vrai suivi. Sinon une question précise
++// indépendante (« Qui joue Robin dans Seducing Mr. Perfect ? ») héritait des indices d'une ancienne recherche floue.
++// Réutilise _getFuzzyContext() (mêmes règles que resolveWebIntent) — pas de second mécanisme d'identification floue.
++// Question précise AUTONOME : ouverte par un interrogatif, sauf si elle désigne l'œuvre inconnue (« ... dans ce film ? »).
++// (Miroir de isStandaloneQuestion côté backend, core/search/webSearch.js.)
++const _CTXHINT_QUESTION_RX = /^(?:(?:bonjour|salut|hey|coucou|bonsoir|dis[-\s]moi|dites[-\s]moi|dis|dites|alors|bon|ok|et|mais)[\s,!.-]+)*(?:qui|quel(?:le)?s?|quand|o[uù]|pourquoi|comment)(?=[\s,?!'’]|$)/i;
++const _CTXHINT_DEICTIC_RX = /\b(?:ce|cet|cette|le|la|l['’]|this|that|the)\s?(?:film|movie|s[eé]rie|series|drama|k.?drama|kdrama|anime|dorama|manga|webtoon|manhwa|roman|livre|novel|jeu|game|[oœ]uvre|personnage|character)(?![\wÀ-ÿ])/i;
++function _isStandaloneQuestion(q) {
++  return _CTXHINT_QUESTION_RX.test(String(q || "").trim()) && !_CTXHINT_DEICTIC_RX.test(q);
++}
++function _contextHintForSearch(userMessage) {
++  const prev = _previousUserMessageForSearch();
++  if (!prev) return undefined;
++  const q = String(userMessage || "");
++  if (_isStandaloneQuestion(q)) return undefined;   // question précise indépendante : jamais de contexte hérité
++  // Le message précédent est-il lui-même une identification floue ? (_getFuzzyContext(prev) est non nul exactement dans
++  // ce cas.) Couvre aussi _getFuzzyContext(q).followUp, qui suppose ce même message précédent flou.
++  if (_getFuzzyContext(prev)) return prev;
++  // Suivi générique trop court pour se suffire (« et le prix ? ») : le backend l'emprunte au message précédent
++  // (buildSearchPlan : < 2 mots-clés). Sans effet sur une question qui a son propre sujet.
++  if ((q.match(/[\p{L}\d]{3,}/gu) || []).length < 2) return prev;
++  return undefined;
++}
++
+ // Retourne { text, sources } (même forme que l'ancien searchWeb) ou null => l'appelant utilise le repli local.
+ async function _searchViaBackend(userMessage, searchQuery) {
+   if (!_backendSearchEnabled() || typeof AbortController === "undefined") return null;
+@@ -4449,7 +4473,7 @@
+       body: JSON.stringify({
+         text: userMessage,
+         rewritten: searchQuery && searchQuery !== userMessage ? searchQuery : undefined,
+-        contextHint: _previousUserMessageForSearch()
++        contextHint: _contextHintForSearch(userMessage)
+       }),
+       signal: ctl.signal
+     });
