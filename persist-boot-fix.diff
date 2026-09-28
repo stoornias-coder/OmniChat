@@ -1,0 +1,46 @@
+--- index.step1.html	2026-09-28 18:33:27.012181471 +0000
++++ index.html	2026-09-28 18:33:27.075808164 +0000
+@@ -3447,6 +3447,10 @@
+ // Toute écriture session passe ICI. Plus de saveCurrentSession / syncSessionToCloud ailleurs.
+ async function persistSession(opts = {}) {
+   if (!currentSessionId || !chatHistory.length) return;
++  // Garde : aucune persistance (local + cloud) tant qu'aucun message JOUEUR n'existe.
++  // L'ouverture d'un personnage/univers (role assistant) reste affichée en mémoire
++  // mais ne crée pas de conversation ; la session naît au premier message utilisateur.
++  if (!chatHistory.some(m => m && m.role === "user")) return;
+   const fu = chatHistory.find(m => m.role === "user");
+   const fb = chatHistory.find(m => m.role === "assistant" || m.role === "bot");
+   const titleSource = fu || fb;
+@@ -7002,6 +7006,7 @@
+     ]);
+ 
+     // Hydrater la session restaurée (recharge historique + mémoire RP scopée)
++    let _sessionHydrated = false;
+     if (_savedActiveId) {
+       const sessions = loadSessions();
+       const savedSess = sessions.find(s => s.id === _savedActiveId)
+@@ -7009,6 +7014,7 @@
+         || sessions.find(s => s.id === _savedActiveId.replace(/^free_/, ""));
+       if (savedSess) {
+         await hydrateSession(savedSess.id);
++        _sessionHydrated = true;
+       } else if (!currentSessionId) {
+         currentSessionId = crypto.randomUUID();
+       }
+@@ -7016,6 +7022,16 @@
+       currentSessionId = crypto.randomUUID();
+     }
+ 
++    // Aucune session à restaurer : repartir d'un état RP neutre (comme newChat()).
++    // Placé APRÈS Promise.allSettled (donc après loadUserSettings) pour que les réglages
++    // cloud (user_settings.modes) ne réécrivent pas l'état RP résiduel après le reset.
++    if (!_sessionHydrated) {
++      const _hadRPResidual = !!(modes.rp || rpActiveId || rpActiveUniId);
++      applyBootState(null);
++      // La mémoire a été chargée avec le scope RP résiduel : la recharger en scope neutre.
++      if (_hadRPResidual) { try { await loadUserMemory(); renderMemoryList(); } catch(e) {} }
++    }
++
+     _dbgAdminVerified = false;
+ 
+   } finally {
