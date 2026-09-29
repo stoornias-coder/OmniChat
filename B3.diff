@@ -1,0 +1,71 @@
+--- index.b2.html
++++ index.html
+@@ -4403,7 +4403,7 @@
+ }
+ 
+ // ===================== RECHERCHE WEB v2 — via le backend (ominichat-core) =====================
+-// Hors "lookup RP", searchWeb() confie la requête au backend (POST /api/search) : requête optimisée,
++// B3 : TOUS les modes (RP libre / fiche / univers, AUTO, WEB, hors RP) confient la requête au backend (POST /api/search) : requête optimisée,
+ // ciblage des sources officielles, dates de publication, classement par fiabilité, règles anti-mélange
+ // web / connaissances internes. La clé Tavily de l'utilisateur part en en-tête (jamais journalisée).
+ // REPLI : si le backend est injoignable, lent (Render endormi), refuse (CORS...) ou répond sans
+@@ -4461,7 +4461,23 @@
+ }
+ 
+ // Retourne { text, sources } (même forme que l'ancien searchWeb) ou null => l'appelant utilise le repli local.
+-async function _searchViaBackend(userMessage, searchQuery) {
++// B3 : ancre d'univers RP (nom de l'univers / fandom de la fiche actifs) transmise via le contextHint EXISTANT du backend,
++// jamais collée dans la requête. Conditions (désambiguïsation réelle uniquement) : ancre active, absente du message,
++// message qui n'est pas une question précise autonome, et pas une identification floue (œuvre inconnue : une ancre biaiserait).
++function _rpAnchorHintForSearch(userMessage) {
++  try {
++    const anchor = _getActiveRPAnchor();
++    if (!anchor) return undefined;
++    const q = String(userMessage || "");
++    if (_isStandaloneQuestion(q) || _getFuzzyContext(q)) return undefined;
++    const low = q.toLowerCase();
++    const parts = (anchor.match(/"([^"]+)"/g) || []).map(function (a) { return a.slice(1, -1); })
++      .filter(function (a) { return a && !low.includes(a.toLowerCase()); });
++    return parts.length ? parts.join(" ").slice(0, 200) : undefined;
++  } catch (e) { return undefined; }
++}
++
++async function _searchViaBackend(userMessage, searchQuery, anchorHint) {
+   if (!_backendSearchEnabled() || typeof AbortController === "undefined") return null;
+   const t0 = Date.now();
+   const ctl = new AbortController();
+@@ -4473,7 +4489,7 @@
+       body: JSON.stringify({
+         text: userMessage,
+         rewritten: searchQuery && searchQuery !== userMessage ? searchQuery : undefined,
+-        contextHint: _contextHintForSearch(userMessage)
++        contextHint: _contextHintForSearch(userMessage) || anchorHint   // B3 : suivi/flou d'abord, sinon ancre RP
+       }),
+       signal: ctl.signal
+     });
+@@ -4499,14 +4515,18 @@
+   // "film coréen / not drama" seul) ne doit dépendre que du fait qu'il s'agisse d'un suivi flou
+   // (_fuzzy.followUp) — pas du mode RP. isRPLookup reste utilisé plus bas pour tout ce qui est
+   // spécifiquement RP (ancre d'univers, profondeur de recherche, contenu brut, récap dramabeans).
+-  const searchQuery = await _buildSearchQuery((_fuzzy && _fuzzy.followUp) ? _fuzzy.text : query, isRPLookup);
++  const _baseQuery = (_fuzzy && _fuzzy.followUp) ? _fuzzy.text : query;
+ 
+-  // v2 : hors lookup RP, la recherche est confiée au backend ; sinon (ou en cas d'échec) ancien code ci-dessous.
+-  if (!isRPLookup) {
+-    const _v2 = await _searchViaBackend(query, searchQuery);
+-    if (_v2) return _v2;
+-    if (_backendSearchEnabled()) console.warn("[SEARCH-V2] repli sur le moteur local (ancien code)");
+-  }
++  // B3 — PIPELINE COMMUN : RP (libre / fiche / univers), AUTO, WEB et hors RP passent par le même chemin : POST /api/search.
++  // La requête envoyée est celle du chemin normal (aucun suffixe « characters relationships synopsis episode 1 », aucune
++  // ancre collée dans la requête) ; l'ancre RP éventuelle voyage dans contextHint. Les résultats sont repris tels que
++  // retournés par le backend (aucun re-tri / filtrage / source fabriquée côté frontend).
++  const _commonQuery = await _buildSearchQuery(_baseQuery, false);
++  const _v2 = await _searchViaBackend(query, _commonQuery, isRPLookup ? _rpAnchorHintForSearch(query) : undefined);
++  if (_v2) return _v2;
++  if (_backendSearchEnabled()) console.warn("[SEARCH-V2] repli sur le moteur local (ancien code)" + (isRPLookup ? " — RP" : ""));
++  // REPLI local uniquement (backend injoignable/refus/sans réponse exploitable ou désactivé) : ancienne requête RP conservée là.
++  const searchQuery = isRPLookup ? await _buildSearchQuery(_baseQuery, true) : _commonQuery;
+ 
+   // FIX SUIVI-FLOU : une identification d'œuvre floue (_fuzzy) bénéficie du typage (domaines
+   // mydramalist/imdb/etc.) même hors RP — la distinction pertinente est "recherche floue ?",
